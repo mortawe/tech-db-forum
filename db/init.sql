@@ -142,3 +142,26 @@ create index ON posts using gin (path);
 create index on threads (slug);
 create index on threads (created, forum);
 create index on user_forum (forum);
+create index threads_id_votes_index
+    on threads (id, votes);
+
+
+CREATE FUNCTION vote_count_upd() RETURNS trigger AS $cvfu$
+BEGIN
+    IF (OLD.vote != NEW.vote) THEN
+        UPDATE threads SET votes = (votes - OLD.vote + NEW.vote) WHERE id = NEW.threadID;
+    END IF;
+    RETURN NEW;
+END;
+$cvfu$ LANGUAGE plpgsql;
+
+CREATE TRIGGER vote_count_upd AFTER UPDATE ON votes FOR EACH ROW EXECUTE PROCEDURE vote_count_upd();
+
+CREATE FUNCTION vote_count_insert() RETURNS trigger AS $$
+BEGIN
+    UPDATE threads SET votes = (votes + NEW.vote) WHERE id = NEW.threadID;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER vote_count_insert AFTER INSERT ON votes FOR EACH ROW EXECUTE PROCEDURE vote_count_insert();
