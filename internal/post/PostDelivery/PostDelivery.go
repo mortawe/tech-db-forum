@@ -51,6 +51,7 @@ func (m *PostManager) Create(ctx *fasthttp.RequestCtx) {
 		ctx.Write([]byte(`{"message": "` + "unmarshal not ok : " + err.Error() + `"}`))
 		return
 	}
+
 	for _, p := range *posts {
 		if _, err := m.uUC.SelectByNickname(p.Author); err != nil {
 			ctx.SetStatusCode(404)

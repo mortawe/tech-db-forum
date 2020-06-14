@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/jackc/pgx"
 	"github.com/mortawe/tech-db-forum/internal/models"
-	"github.com/sirupsen/logrus"
 )
 type PostRepo struct {
 	db *pgx.ConnPool
@@ -23,30 +22,36 @@ func (r *PostRepo) SelectThreadByPostID(id int) (int, error) {
 }
 
 func (r *PostRepo) InsertPosts(posts []*models.Post) error {
-	query := "INSERT INTO posts (author, created, forum, message, parent, thread) values "
+
+	tx, err := r.db.Begin()
+
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	query := "INSERT INTO posts (author, created, forum, message, parent, thread) values ($1, $2, $3, $4, $5, $6)" +
+		"RETURNING id"
+
+	pQ, err := tx.Prepare("post_bucket", query)
+	if err != nil {
+		tx.Rollback()
+		return  err
+	}
 	if len(posts) == 0 {
 		return nil
 	}
-	for i, p := range posts {
-		if i != 0 {
-			query += ", "
-		}
-		t, _ := p.Created.MarshalText()
-		query += fmt.Sprintf("('%s', '%s', '%s', '%s', %d, %d) ", p.Author, t, p.Forum, p.Message,
-			p.Parent,p.Thread)
-	}
-
-	query += "RETURNING id"
-	logrus.Println("QUERY IS : ", query)
-	rows, err := r.db.Query(query)
-	if err != nil {
-		return err
-	}
-	for idx := 0; rows.Next(); idx++ {
-		if err := rows.Scan(&posts[idx].ID); err != nil {
+	idx := 0
+	for _, p := range posts {
+		err = tx.QueryRow(pQ.Name, p.Author, p.Created, p.Forum, p.Message, p.Parent,p.Thread).Scan(&posts[idx].ID)
+		idx++
+		if err != nil {
+			tx.Rollback()
 			return err
 		}
 	}
+
+	tx.Commit()
 	return nil
 }
 

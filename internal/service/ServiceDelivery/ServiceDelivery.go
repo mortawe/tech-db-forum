@@ -48,8 +48,8 @@ func (m *ServiceManager) Status(ctx *fasthttp.RequestCtx) {
 
 func (m *ServiceManager) Clear(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
-
-	_, err := m.db.Exec("TRUNCATE  users, forums, votes , user_forum, posts, threads CASCADE ")
+	_, err := m.db.Exec("DELETE FROM users")
+	//_, err := m.db.Exec("TRUNCATE  users, forums, votes , user_forum, posts, threads CASCADE ")
 	if err != nil {
 		logrus.Println(err)
 	}

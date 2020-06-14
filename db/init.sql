@@ -5,7 +5,7 @@ CREATE unlogged TABLE users
     about    varchar not null,
     email    citext unique not null,
     fullname citext not null,
-    nickname citext unique not null
+    nickname citext primary key not null
 );
 
 
@@ -140,9 +140,11 @@ execute procedure update_posts_count();
 create index on posts (thread);
 create index ON posts using gin (path);
 create index on threads (slug);
+create index on threads (id);
+create index on votes (nickname, threadID);
 create index on threads (created, forum);
 create index on user_forum (forum);
-create index threads_id_votes_index
+create UNIQUE index threads_id_votes_index
     on threads (id, votes);
 
 
