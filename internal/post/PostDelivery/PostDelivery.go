@@ -10,10 +10,8 @@ import (
 	"github.com/mortawe/tech-db-forum/internal/post/PostUC"
 	"github.com/mortawe/tech-db-forum/internal/thread"
 	"github.com/mortawe/tech-db-forum/internal/user"
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 	"strconv"
-	"time"
 )
 
 type PostManager struct {
@@ -37,7 +35,6 @@ func (m *PostManager) InitRoutes(r *router.Router) {
 func (m *PostManager) Create(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
 
-	logrus.Println("create post")
 	slugOrID := ctx.UserValue("slugOrID").(string)
 	thread, err := m.tUC.SelectBySlugOrID(slugOrID)
 	if err != nil {
@@ -59,26 +56,24 @@ func (m *PostManager) Create(ctx *fasthttp.RequestCtx) {
 			return
 		}
 	}
-	err = m.pUC.InsertPost(*posts, thread.Forum, thread.ID, time.Now())
+	err = m.pUC.InsertPost(*posts, thread.Forum, thread.ID)
 	if err != nil {
 		if err == PostUC.ParentErr {
 			ctx.SetStatusCode(409)
-			ctx.Write([]byte(`{"message": "` + "parent error : " + err.Error() + `"}`))
+			ctx.Write([]byte(`{"message": "` + "parent error : "+ `"}`))
 			return
 		}
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
-		ctx.Write([]byte(`{"message": "` + "insert not ok : " + err.Error() + `"}`))
+		ctx.Write([]byte(`{"message": "` + "insert not ok : " + `"}`))
 		return
 	}
 	resp, _ := json.Marshal(posts)
 	ctx.Write(resp)
 	ctx.SetStatusCode(201)
-	logrus.Println("success")
 }
 
 func (m *PostManager) Update(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
-	logrus.Println("update post")
 	idStr := ctx.UserValue("id").(string)
 	id, _ := strconv.Atoi(idStr)
 	postInDB, err := m.pUC.SelectPostByID(id)
@@ -108,13 +103,11 @@ func (m *PostManager) Update(ctx *fasthttp.RequestCtx) {
 	resp, _ := json.Marshal(post)
 	ctx.Write(resp)
 	ctx.SetStatusCode(200)
-	logrus.Println("success")
 }
 
 func (m *PostManager) GetByID(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
 	related := ctx.QueryArgs().Peek("related")
-	logrus.Println("get by id post")
 	idStr := ctx.UserValue("id").(string)
 	id, _ := strconv.Atoi(idStr)
 	details := &models.PostDetails{}

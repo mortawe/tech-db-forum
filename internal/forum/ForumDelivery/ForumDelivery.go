@@ -8,7 +8,6 @@ import (
 	"github.com/mortawe/tech-db-forum/internal/user"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-	"log"
 	"strconv"
 )
 
@@ -47,7 +46,7 @@ func (m *ForumManager) CreateForum(ctx *fasthttp.RequestCtx) {
 		ctx.Write(resp)
 		return
 	}
-	log.Println(err)
+	//log.Println(err)
 	err = m.fUC.Create(forum)
 	if err != nil {
 		ctx.SetStatusCode(404)

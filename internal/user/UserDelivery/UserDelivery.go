@@ -6,9 +6,7 @@ import (
 	"github.com/mortawe/tech-db-forum/internal/forum"
 	"github.com/mortawe/tech-db-forum/internal/models"
 	"github.com/mortawe/tech-db-forum/internal/user"
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-	"log"
 )
 
 type UserManager struct {
@@ -27,7 +25,6 @@ func (m *UserManager) InitRoutes(r *router.Router) {
 }
 
 func (m *UserManager) CreateUser(ctx *fasthttp.RequestCtx) {
-	logrus.Println("create user")
 	user := &models.User{}
 	ctx.SetContentType("application/json")
 	if err := json.Unmarshal(ctx.PostBody(), user); err != nil {
@@ -73,7 +70,6 @@ func (m *UserManager) CreateUser(ctx *fasthttp.RequestCtx) {
 }
 
 func (m *UserManager) UpdateProfile(ctx *fasthttp.RequestCtx) {
-	logrus.Println("update user")
 	user := &models.User{}
 	ctx.SetContentType("application/json")
 	if err := json.Unmarshal(ctx.PostBody(), user); err != nil {
@@ -126,7 +122,6 @@ func (m *UserManager) UpdateProfile(ctx *fasthttp.RequestCtx) {
 func (m *UserManager) GetProfile(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
 
-	logrus.Println("get user")
 	user := &models.User{}
 
 	user.Nickname = ctx.UserValue("nickname").(string)
@@ -144,5 +139,4 @@ func (m *UserManager) GetProfile(ctx *fasthttp.RequestCtx) {
 	resp, _ := json.Marshal(userInDB)
 	ctx.Write(resp)
 	ctx.SetStatusCode(200)
-	log.Println("success")
 }

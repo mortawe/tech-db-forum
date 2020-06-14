@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"github.com/fasthttp/router"
 	"github.com/jackc/pgx"
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
 )
 
@@ -48,10 +47,7 @@ func (m *ServiceManager) Status(ctx *fasthttp.RequestCtx) {
 
 func (m *ServiceManager) Clear(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
-	_, err := m.db.Exec("DELETE FROM users")
+	m.db.Exec("DELETE FROM users")
 	//_, err := m.db.Exec("TRUNCATE  users CASCADE")
-	if err != nil {
-		logrus.Println(err)
-	}
 	ctx.SetStatusCode(200)
 }

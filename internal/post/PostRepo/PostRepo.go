@@ -22,36 +22,28 @@ func (r *PostRepo) SelectThreadByPostID(id int) (int, error) {
 }
 
 func (r *PostRepo) InsertPosts(posts []*models.Post) error {
-
-	tx, err := r.db.Begin()
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	query := "INSERT INTO posts (author, created, forum, message, parent, thread) values ($1, $2, $3, $4, $5, $6)" +
-		"RETURNING id"
-
-	pQ, err := tx.Prepare("post_bucket", query)
-	if err != nil {
-		tx.Rollback()
-		return  err
-	}
+	query := "INSERT INTO posts (author, forum, message, parent, thread) values "
 	if len(posts) == 0 {
 		return nil
 	}
-	idx := 0
-	for _, p := range posts {
-		err = tx.QueryRow(pQ.Name, p.Author, p.Created, p.Forum, p.Message, p.Parent,p.Thread).Scan(&posts[idx].ID)
-		idx++
-		if err != nil {
-			tx.Rollback()
+	for i, p := range posts {
+		if i != 0 {
+			query += ", "
+		}
+		query += fmt.Sprintf("('%s', '%s', '%s', %d, %d) ", p.Author, p.Forum, p.Message,
+			p.Parent,p.Thread)
+	}
+
+	query += "RETURNING id, created"
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return err
+	}
+	for idx := 0; rows.Next(); idx++ {
+		if err := rows.Scan(&posts[idx].ID, &posts[idx].Created); err != nil {
 			return err
 		}
 	}
-
-	tx.Commit()
-
 	return nil
 }
 

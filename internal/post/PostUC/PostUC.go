@@ -4,7 +4,6 @@ import (
 	"errors"
 	"github.com/mortawe/tech-db-forum/internal/models"
 	"github.com/mortawe/tech-db-forum/internal/post"
-	"time"
 )
 var (
 	ParentErr = errors.New("parent")
@@ -17,7 +16,7 @@ func NewPostUC(repo post.IPostRepo) *PostUC {
 	return &PostUC{repo: repo}
 }
 
-func (uc *PostUC) InsertPost(posts []*models.Post, forum string, threadID int, created time.Time) error {
+func (uc *PostUC) InsertPost(posts []*models.Post, forum string, threadID int) error {
 	for _, post := range posts {
 		if post.Parent != 0 {
 			parentPostThreadID, err := uc.repo.SelectThreadByPostID(post.Parent)
@@ -30,7 +29,6 @@ func (uc *PostUC) InsertPost(posts []*models.Post, forum string, threadID int, c
 		}
 		post.Forum = forum
 		post.Thread = threadID
-		post.Created = created
 		post.IsEdited = false
 	}
 	err := uc.repo.InsertPosts(posts)

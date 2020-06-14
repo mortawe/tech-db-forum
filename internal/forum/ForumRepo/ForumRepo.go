@@ -3,7 +3,6 @@ package ForumRepo
 import (
 	"github.com/jackc/pgx"
 	"github.com/mortawe/tech-db-forum/internal/models"
-	"github.com/sirupsen/logrus"
 )
 
 type ForumRepo struct {
@@ -68,9 +67,7 @@ func (r *ForumRepo) GetUsersByForum(slug string, desc bool, since string, limit 
 			rows, err = r.db.Query(query, &slug)
 		}
 	}
-	logrus.Println(query, " ", slug, " ", since, " ")
 	if err != nil {
-		logrus.Println("THE GREAT ERROR : ", err)
 		return users, nil
 	}
 	for rows.Next() {

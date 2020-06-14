@@ -16,9 +16,11 @@ func NewUserUC(repo user.IUserRepo) *UserUC {
 func (uUC *UserUC) Insert(user *models.User) error {
 	return uUC.repo.Insert(user)
 }
-func (uUC *UserUC)  Update(user *models.User) error {
+
+func (uUC *UserUC) Update(user *models.User) error {
 	return uUC.repo.Update(user)
 }
+
 func (uUC *UserUC) SelectByNickname(nickname string) (models.User, error) {
 	return uUC.repo.SelectByNickname(nickname)
 }

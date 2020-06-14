@@ -7,9 +7,7 @@ import (
 	"github.com/mortawe/tech-db-forum/internal/models"
 	"github.com/mortawe/tech-db-forum/internal/thread"
 	"github.com/mortawe/tech-db-forum/internal/user"
-	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-	"log"
 	"strconv"
 )
 
@@ -38,7 +36,6 @@ func (m *ThreadManager) InitRoutes(r *router.Router) {
 func (m *ThreadManager) CreateThread(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
 
-	logrus.Println("thread create")
 	thread := &models.Thread{}
 
 	if err := json.Unmarshal(ctx.PostBody(), thread); err != nil {
@@ -78,13 +75,11 @@ func (m *ThreadManager) CreateThread(ctx *fasthttp.RequestCtx) {
 	ctx.SetStatusCode(fasthttp.StatusCreated)
 	resp, _ := json.Marshal(thread)
 	ctx.Write(resp)
-	log.Print("success")
 }
 
 func (m *ThreadManager) GetThreadsByForum(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
 
-	logrus.Println("thread create")
 	slug := ctx.UserValue("slug").(string)
 	_, err := m.fUC.SelectBySlug(slug)
 	if err != nil {
@@ -110,12 +105,10 @@ func (m *ThreadManager) GetThreadsByForum(ctx *fasthttp.RequestCtx) {
 	resp, _ := json.Marshal(threads)
 	ctx.SetStatusCode(200)
 	ctx.Write(resp)
-	log.Println("success")
 }
 
 func (m *ThreadManager) Details(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
-	logrus.Println("thread details")
 	slug := ctx.UserValue("slugOrID").(string)
 	thread, err := m.tUC.SelectBySlugOrID(slug)
 	if err != nil {
@@ -131,7 +124,6 @@ func (m *ThreadManager) Details(ctx *fasthttp.RequestCtx) {
 
 func (m *ThreadManager) Update(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
-	logrus.Println("thread update")
 	slug := ctx.UserValue("slugOrID").(string)
 	threadInDB, err := m.tUC.SelectBySlugOrID(slug)
 	if err != nil {
