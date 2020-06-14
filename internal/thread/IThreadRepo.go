@@ -9,7 +9,6 @@ type IThreadRepo interface {
 	SelectThreadByID(id int) (*models.Thread, error)
 	SelectThreadBySlug(slug string) (*models.Thread, error)
 	Update(thread *models.Thread) error
-	UpdateVoice(voice *models.Vote, thread int) (int, error)
-	InsertVoice(voice *models.Vote, thread int) (int, error)
-	GetVotes(thread int) (int, error)
+	VoteBySlug(vote models.Vote, slug string) (models.Thread, error)
+	VoteByID(vote models.Vote, id int) (models.Thread, error)
 }

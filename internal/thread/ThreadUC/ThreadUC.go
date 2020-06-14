@@ -44,13 +44,10 @@ func (uc *ThreadUC) Update(thread *models.Thread) error {
 	return uc.repo.Update(thread)
 }
 
-func (uc *ThreadUC) InsertVoice(voice *models.Vote, thread int) (int, error){
-	return uc.repo.InsertVoice(voice, thread)
-}
-func (uc *ThreadUC) UpdateVoice(voice *models.Vote, thread int) (int, error) {
-	return uc.repo.UpdateVoice(voice, thread)
-}
-
-func (uc *ThreadUC) GetVotes(thread int) (int, error) {
-	return uc.repo.GetVotes(thread)
+func (uc *ThreadUC) Vote(vote models.Vote, slug string) (models.Thread, error) {
+	if id, err := strconv.Atoi(slug); err != nil {
+		return uc.repo.VoteBySlug(vote, slug)
+	} else {
+		return uc.repo.VoteByID(vote, id)
+	}
 }

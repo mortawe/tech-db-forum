@@ -24,7 +24,6 @@ func (r *PostRepo) SelectThreadByPostID(id int) (int, error) {
 func (r *PostRepo) InsertPosts(posts []*models.Post) error {
 
 	tx, err := r.db.Begin()
-
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -52,6 +51,7 @@ func (r *PostRepo) InsertPosts(posts []*models.Post) error {
 	}
 
 	tx.Commit()
+
 	return nil
 }
 

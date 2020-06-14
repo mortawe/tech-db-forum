@@ -10,7 +10,5 @@ type IThreadUC interface {
 	SelectByID(id int) (*models.Thread, error)
 	SelectThreadBySlug(slug string) (*models.Thread, error)
 	Update(thread *models.Thread) error
-	InsertVoice(voice *models.Vote, thread int) (int, error)
-	UpdateVoice(voice *models.Vote, thread int) (int, error)
-	GetVotes(thread int) (int, error)
+	Vote(vote models.Vote, slug string) (models.Thread, error)
 }

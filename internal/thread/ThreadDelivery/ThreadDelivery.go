@@ -123,7 +123,6 @@ func (m *ThreadManager) Details(ctx *fasthttp.RequestCtx) {
 		ctx.Write([]byte(`{"message": "` + "thread does not exists : " + `" }`))
 		return
 	}
-	thread.Votes, err = m.tUC.GetVotes(thread.ID)
 
 	resp, _ := json.Marshal(thread)
 	ctx.Write(resp)
@@ -171,42 +170,23 @@ func (m *ThreadManager) Update(ctx *fasthttp.RequestCtx) {
 	ctx.SetStatusCode(200)
 }
 
-
-
 func (m *ThreadManager) Vote(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
 	slug := ctx.UserValue("slugOrID").(string)
 
-	vote := &models.Vote{}
-	if err := json.Unmarshal(ctx.PostBody(), vote); err != nil {
+	voice := &models.Vote{}
+	if err := json.Unmarshal(ctx.PostBody(), voice); err != nil {
 		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		ctx.Write([]byte(`{"message": "` + err.Error() + `" }`))
+		ctx.Write([]byte(`{"message": "` + `" }`))
 		return
 	}
-	_, err := m.uUC.SelectByNickname(vote.Nickname)
+	thread, err := m.tUC.Vote(*voice, slug)
 	if err != nil {
 		ctx.SetStatusCode(404)
-		ctx.Write([]byte(`{"message": "` + "thread does not exists : " + `" }`))
+		ctx.Write([]byte(`{"message": "` +  `" }`))
 		return
 	}
-	threadInDB, err := m.tUC.SelectBySlugOrID(slug)
-	if err != nil {
-		ctx.SetStatusCode(404)
-		ctx.Write([]byte(`{"message": "` + "thread does not exists : " + `" }`))
-		return
-	}
-	if _, err = m.tUC.UpdateVoice(vote, threadInDB.ID); err != nil {
-		var e error
-		_, e = m.tUC.InsertVoice(vote, threadInDB.ID)
-		if e != nil {
-			ctx.Write([]byte(e.Error()))
-			return
-		}
-	}
-
-	threadInDB.Votes, _ = m.tUC.GetVotes(threadInDB.ID)
-
-	resp , _ := json.Marshal(threadInDB)
+	resp , _ := json.Marshal(thread)
 	ctx.SetStatusCode(200)
 	ctx.Write(resp)
 }

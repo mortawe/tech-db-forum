@@ -47,7 +47,9 @@ CREATE unlogged TABLE votes
 (
     nickname citext not null references users (nickname) on delete cascade ,
     threadID integer not null references threads (id) on delete cascade ,
-    vote     integer not null
+    vote     integer not null,
+
+    CONSTRAINT votes_pk PRIMARY KEY (threadid, nickname)
 );
 
 
@@ -157,7 +159,7 @@ BEGIN
 END;
 $cvfu$ LANGUAGE plpgsql;
 
-CREATE TRIGGER vote_count_upd AFTER UPDATE ON votes FOR EACH ROW EXECUTE PROCEDURE vote_count_upd();
+CREATE TRIGGER vote_count_upd after UPDATE ON votes FOR EACH ROW EXECUTE PROCEDURE vote_count_upd();
 
 CREATE FUNCTION vote_count_insert() RETURNS trigger AS $$
 BEGIN
@@ -166,4 +168,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER vote_count_insert AFTER INSERT ON votes FOR EACH ROW EXECUTE PROCEDURE vote_count_insert();
+CREATE TRIGGER vote_count_insert after INSERT ON votes FOR EACH ROW EXECUTE PROCEDURE vote_count_insert();
+
+CREATE INDEX ON posts (thread ASC);
+CREATE INDEX ON posts (thread, id ASC, path ASC) WHERE thread < 5000;
+CREATE INDEX ON posts (thread, id ASC, path ASC) WHERE thread >= 5000;
+CREATE INDEX ON posts (forum, author ASC);
+CREATE INDEX ON posts (thread ASC) WHERE parent = 0;
+CREATE INDEX ON posts (thread ASC, (path[1]) ASC) WHERE parent = 0;
+CREATE INDEX ON posts ((path[1]) ASC) WHERE parent = 0;
+CREATE INDEX ON posts (path ASC);
+CREATE INDEX ON posts ((path[1]) ASC);
+CREATE INDEX ON posts (id ASC, (path[1]) ASC);

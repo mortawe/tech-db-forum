@@ -100,11 +100,7 @@ func (r *ThreadRepo) SelectThreadBySlug(slug string) (*models.Thread, error) {
 	}
 	return &thread, nil
 }
-func (r *ThreadRepo) GetVoteCount(id int) (int, error) {
-	thread := models.Thread{}
-	err := r.db.QueryRow("SELECT SUM(vote) FROM votes where threadid = $1", id).Scan(&thread.Votes)
-	return thread.Votes, err
-}
+
 
 func (r *ThreadRepo) Update(thread *models.Thread) error {
 	err := r.db.QueryRow("UPDATE threads "+
@@ -120,20 +116,45 @@ func (r *ThreadRepo) Update(thread *models.Thread) error {
 	return err
 }
 
-func (r *ThreadRepo) InsertVoice(voice *models.Vote, thread int) (int, error) {
-	t := &models.Thread{}
-	err := r.db.QueryRow("INSERT INTO votes (threadid, nickname, vote) VALUES ($1, $2, $3) RETURNING vote", thread, voice.Nickname, voice.Voice).Scan(&t.Votes)
-	return t.Votes, err
+func (r *ThreadRepo) VoteBySlug(vote models.Vote, slug string) (models.Thread, error) {
+	thread, err := r.SelectThreadBySlug(slug)
+	if err != nil {
+		return models.Thread{}, err
+	}
+	_, err = r.db.Exec(`INSERT INTO votes (threadid, nickname, vote)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (threadid, nickname) DO UPDATE SET vote = $3`,
+		thread.ID,
+		vote.Nickname,
+		vote.Voice,
+	)
+	if err != nil {
+		return models.Thread{}, err
+	}
+	err = r.db.QueryRow(
+		`SELECT votes FROM threads WHERE id = $1`,
+		thread.ID).Scan(&thread.Votes)
+	if err != nil {
+		return models.Thread{}, err
+	}
+	return *thread, nil
 }
 
-func (r *ThreadRepo) UpdateVoice(voice *models.Vote, thread int) (int, error) {
-	t := &models.Thread{}
-	err := r.db.QueryRow("UPDATE votes SET vote = $1 WHERE nickname = $2 AND threadid = $3 RETURNING vote", voice.Voice, voice.Nickname, thread).Scan(&t.Votes)
-	return t.Votes, err
-}
-
-func (r *ThreadRepo) GetVotes(thread int) (int, error) {
-	t := &models.Thread{}
-	err := r.db.QueryRow("SELECT votes FROM threads WHERE id = $1", thread).Scan(&t.Votes)
-	return t.Votes, err
+func (r *ThreadRepo) VoteByID(vote models.Vote, id int) (models.Thread, error) {
+	_, err := r.db.Exec(`
+			INSERT INTO votes (threadid, nickname, vote)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (threadid, nickname) DO UPDATE SET vote = $3`,
+		id,
+		vote.Nickname,
+		vote.Voice,
+	)
+	if err != nil {
+		return models.Thread{}, err
+	}
+	thread := &models.Thread{}
+	if thread, err = r.SelectThreadByID(id); err != nil {
+		return models.Thread{}, err
+	}
+	return *thread, nil
 }
