@@ -177,3 +177,5 @@ CREATE INDEX ON posts (forum, author ASC);
 CREATE INDEX ON posts (path ASC);
 CREATE INDEX ON posts ((path[1]) ASC);
 CREATE INDEX ON posts (id ASC, (path[1]) ASC);
+
+VACUUM ANALYZE;
