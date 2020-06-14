@@ -120,21 +120,20 @@ func (r *ThreadRepo) Update(thread *models.Thread) error {
 	return err
 }
 
-func (r *ThreadRepo) InserteVoice(voice *models.Vote, thread *models.Thread) error {
-	_, err := r.db.Exec("INSERT INTO votes (threadid, nickname, vote) VALUES ($1, $2, $3)", thread.ID, voice.Nickname, voice.Voice)
-	return err
+func (r *ThreadRepo) InsertVoice(voice *models.Vote, thread int) (int, error) {
+	t := &models.Thread{}
+	err := r.db.QueryRow("INSERT INTO votes (threadid, nickname, vote) VALUES ($1, $2, $3) RETURNING vote", thread, voice.Nickname, voice.Voice).Scan(&t.Votes)
+	return t.Votes, err
 }
 
-func (r *ThreadRepo) UpdateVoice(voice *models.Vote, thread int) error {
-	threaded := models.Thread{}
-	err := r.db.QueryRow("UPDATE votes SET vote = $1 WHERE nickname = $2 AND threadid = $3 RETURNING vote", voice.Voice, voice.Nickname, thread).Scan(&threaded.Votes)
-	return err
+func (r *ThreadRepo) UpdateVoice(voice *models.Vote, thread int) (int, error) {
+	t := &models.Thread{}
+	err := r.db.QueryRow("UPDATE votes SET vote = $1 WHERE nickname = $2 AND threadid = $3 RETURNING vote", voice.Voice, voice.Nickname, thread).Scan(&t.Votes)
+	return t.Votes, err
 }
 
-func (r *ThreadRepo) SelecteVoice(nickname string, thread int) (*models.Vote, error) {
-	vote := &models.Vote{}
-	err := r.db.QueryRow("SELECT  vote, nickname FROM votes " +
-		"WHERE nickname = $1 AND threadid = $2", nickname, thread).Scan(&vote.Voice,
-			&vote.Nickname)
-	return vote, err
+func (r *ThreadRepo) GetVotes(thread int) (int, error) {
+	t := &models.Thread{}
+	err := r.db.QueryRow("SELECT votes FROM threads WHERE id = $1", thread).Scan(&t.Votes)
+	return t.Votes, err
 }

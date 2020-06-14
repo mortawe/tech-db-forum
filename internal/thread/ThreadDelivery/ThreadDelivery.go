@@ -123,7 +123,7 @@ func (m *ThreadManager) Details(ctx *fasthttp.RequestCtx) {
 		ctx.Write([]byte(`{"message": "` + "thread does not exists : " + `" }`))
 		return
 	}
-	thread.Votes, err = m.tUC.GetVoteCount(thread.ID)
+	thread.Votes, err = m.tUC.GetVotes(thread.ID)
 
 	resp, _ := json.Marshal(thread)
 	ctx.Write(resp)
@@ -195,18 +195,17 @@ func (m *ThreadManager) Vote(ctx *fasthttp.RequestCtx) {
 		ctx.Write([]byte(`{"message": "` + "thread does not exists : " + `" }`))
 		return
 	}
-	if err := m.tUC.UpdateVoice(vote, threadInDB.ID); err != nil {
-		er := m.tUC.InserteVoice(vote, threadInDB)
-		if er != nil {
-			ctx.Write([]byte(er.Error()))
+	if _, err = m.tUC.UpdateVoice(vote, threadInDB.ID); err != nil {
+		var e error
+		_, e = m.tUC.InsertVoice(vote, threadInDB.ID)
+		if e != nil {
+			ctx.Write([]byte(e.Error()))
 			return
 		}
 	}
-	threadInDB.Votes, err = m.tUC.GetVoteCount(threadInDB.ID)
-	if err != nil {
-		ctx.Write([]byte(err.Error()))
-		return
-	}
+
+	threadInDB.Votes, _ = m.tUC.GetVotes(threadInDB.ID)
+
 	resp , _ := json.Marshal(threadInDB)
 	ctx.SetStatusCode(200)
 	ctx.Write(resp)

@@ -44,16 +44,13 @@ func (uc *ThreadUC) Update(thread *models.Thread) error {
 	return uc.repo.Update(thread)
 }
 
-func (uc *ThreadUC) InserteVoice(voice *models.Vote, thread *models.Thread) error {
-	return uc.repo.InserteVoice(voice, thread)
+func (uc *ThreadUC) InsertVoice(voice *models.Vote, thread int) (int, error){
+	return uc.repo.InsertVoice(voice, thread)
 }
-func (uc *ThreadUC) UpdateVoice(voice *models.Vote, thread int) error{
+func (uc *ThreadUC) UpdateVoice(voice *models.Vote, thread int) (int, error) {
 	return uc.repo.UpdateVoice(voice, thread)
 }
-func (uc *ThreadUC)  SelecteVoice(nickname string, thread int) (*models.Vote, error) {
-	return uc.repo.SelecteVoice(nickname, thread)
-}
 
-func (uc *ThreadUC) GetVoteCount(id int) (int, error) {
-	return uc.repo.GetVoteCount(id)
+func (uc *ThreadUC) GetVotes(thread int) (int, error) {
+	return uc.repo.GetVotes(thread)
 }

@@ -76,17 +76,15 @@ func (r *PostRepo) GetPosts(threadID int, desc bool, since string, limit int, so
 		case "tree":
 			query = "SELECT posts.id, posts.author, posts.forum, posts.thread, " +
 				"posts.message, posts.parent, posts.edited, posts.created " +
-				"FROM posts %s posts.thread = $1 ORDER BY posts.path[1] %s, posts.path %s LIMIT %s"
+				"FROM posts %s posts.thread = $1 ORDER BY posts.path[1] %s, posts.path %s LIMIT $3"
 			if desc {
 				query = fmt.Sprintf(query, "JOIN posts P ON P.id = $2 WHERE posts.path < p.path AND",
 					"DESC",
-					"DESC",
-					"$3")
+					"DESC")
 			} else {
 				query = fmt.Sprintf(query, "JOIN posts P ON P.id = $2 WHERE posts.path > p.path AND",
 					"ASC",
-					"ASC",
-					"$3")
+					"ASC")
 			}
 		case "parent_tree":
 			query =  "SELECT p.id, p.author, p.forum, p.thread, p.message, p.parent, p.edited, p.created " +
@@ -103,11 +101,11 @@ func (r *PostRepo) GetPosts(threadID int, desc bool, since string, limit int, so
 			}
 		default:
 			query = "SELECT id, author, forum, thread, message, parent, edited, created " +
-				"FROM posts WHERE thread = $1 %s ORDER BY id %s LIMIT %s"
+				"FROM posts WHERE thread = $1 AND id %s $2 ORDER BY id %s LIMIT $3"
 			if desc {
-				query = fmt.Sprintf(query, "AND id < $2", "DESC", "$3")
+				query = fmt.Sprintf(query, "<", "DESC")
 			} else {
-				query = fmt.Sprintf(query, "AND id > $2", "ASC", "$3")
+				query = fmt.Sprintf(query, ">", "ASC")
 			}
 		}
 		rows, err = r.db.Query(query, threadID, since, limit)
@@ -117,33 +115,32 @@ func (r *PostRepo) GetPosts(threadID int, desc bool, since string, limit int, so
 			if desc {
 				query = fmt.Sprintf("SELECT posts.id, posts.author, posts.forum, posts.thread, " +
 					"posts.message, posts.parent, posts.edited, posts.created " +
-					"FROM posts %s posts.thread = $1 ORDER BY posts.path[1] %s, posts.path %s LIMIT %s", "WHERE", "DESC", "DESC", "$2")
+					"FROM posts WHERE posts.thread = $1 ORDER BY posts.path[1] DESC, posts.path DESC LIMIT $2")
 			} else {
 				query = fmt.Sprintf("SELECT posts.id, posts.author, posts.forum, posts.thread, " +
 					"posts.message, posts.parent, posts.edited, posts.created " +
-					"FROM posts %s posts.thread = $1 ORDER BY posts.path[1] %s, posts.path %s LIMIT %s", "WHERE", "ASC", "ASC", "$2")
+					"FROM posts WHERE posts.thread = $1 ORDER BY posts.path[1] ASC, posts.path ASC LIMIT $2")
 			}
 		case "parent_tree":
 			if desc {
-				query = fmt.Sprintf( "SELECT p.id, p.author, p.forum, p.thread, p.message, p.parent, p.edited, p.created " +
+				query = "SELECT p.id, p.author, p.forum, p.thread, p.message, p.parent, p.edited, p.created " +
 					"FROM posts as p WHERE p.thread = $1 AND " +
-					"p.path::integer[] && (SELECT ARRAY (select p.id from posts as p WHERE p.thread = $1 AND p.parent = 0 %s %s %s", "",
-					"ORDER BY p.path[1] DESC, p.path LIMIT $2)) ",
-					"ORDER BY p.path[1] DESC, p.path ")
+					"p.path::integer[] && (SELECT ARRAY (select p.id from posts as p WHERE p.thread = $1 AND p.parent = 0" +
+					"ORDER BY p.path[1] DESC, p.path LIMIT $2)) " +
+					"ORDER BY p.path[1] DESC, p.path"
 			} else {
-				query = fmt.Sprintf( "SELECT p.id, p.author, p.forum, p.thread, p.message, p.parent, p.edited, p.created " +
+				query ="SELECT p.id, p.author, p.forum, p.thread, p.message, p.parent, p.edited, p.created " +
 					"FROM posts as p WHERE p.thread = $1 AND " +
-					"p.path::integer[] && (SELECT ARRAY (select p.id from posts as p WHERE p.thread = $1 AND p.parent = 0 %s %s %s", "",
-					"ORDER BY p.path[1] ASC, p.path LIMIT $2)) ",
-					"ORDER BY p.path[1] ASC, p.path ")
+					"p.path::integer[] && (SELECT ARRAY (select p.id from posts as p WHERE p.thread = $1 AND p.parent = 0 " +
+					"ORDER BY p.path[1] ASC, p.path LIMIT $2)) ORDER BY p.path[1] ASC, p.path"
 			}
 		default:
 			if desc {
-				query = fmt.Sprintf("SELECT id, author, forum, thread, message, parent, edited, created " +
-					"FROM posts WHERE thread = $1 %s ORDER BY id %s LIMIT %s", "", "DESC", "$2")
+				query = "SELECT id, author, forum, thread, message, parent, edited, created " +
+					"FROM posts WHERE thread = $1  ORDER BY id DESC LIMIT $2"
 			} else {
-				query = fmt.Sprintf("SELECT id, author, forum, thread, message, parent, edited, created " +
-					"FROM posts WHERE thread = $1 %s ORDER BY id %s LIMIT %s", "", "ASC", "$2")
+				query = "SELECT id, author, forum, thread, message, parent, edited, created " +
+					"FROM posts WHERE thread = $1 ORDER BY id ASC LIMIT $2"
 			}
 		}
 		rows, err = r.db.Query(query, threadID, limit)
