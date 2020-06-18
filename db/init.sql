@@ -69,11 +69,11 @@ CREATE UNLOGGED TABLE posts
 );
 
 CREATE UNIQUE INDEX ON posts(id, thread);
-CREATE UNIQUE INDEX ON posts(id, author, created, forum_slug, edited, message, parent, thread);
-CREATE INDEX ON posts(thread, path DESC , id, author, created, forum_slug, edited, message, parent);
-CREATE INDEX ON posts(thread, path ASC , id, author, created, forum_slug, edited, message, parent);
-CREATE INDEX ON posts(thread, id DESC, author, created, forum_slug, edited, message, parent);
-CREATE INDEX ON posts(thread, id ASC, author, created, forum_slug, edited, message, parent);
+CREATE UNIQUE INDEX ON posts(id, author);
+CREATE INDEX ON posts(thread, path DESC);
+CREATE INDEX ON posts(thread, path ASC);
+CREATE INDEX ON posts(thread, id DESC);
+CREATE INDEX ON posts(thread, id ASC);
 
 
 
