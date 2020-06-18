@@ -1,10 +1,10 @@
-#FROM golang:1.13-stretch AS builder
-#
-#WORKDIR /build
-#COPY . .
-#
-#USER root
-#RUN go build  ./cmd/server/run.go
+FROM golang:1.13-stretch AS builder
+
+WORKDIR /build
+COPY . .
+
+USER root
+RUN go build  ./cmd/server/run.go
 
 FROM ubuntu:20.04
 COPY . .
