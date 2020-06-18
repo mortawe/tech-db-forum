@@ -47,9 +47,9 @@ CREATE UNLOGGED TABLE threads
     votes      INTEGER                     DEFAULT 0                 NOT NULL
 );
 
-CREATE INDEX ON threads(slug, author, created, forum_slug, id, message,title, votes);
-CREATE INDEX ON threads(forum_slug, created ASC, author, forum_slug, id, message, slug, title, votes);
-CREATE INDEX ON threads(forum_slug, created DESC, author, forum_slug, id, message, slug, title, votes);
+CREATE INDEX ON threads(slug, author);
+CREATE INDEX ON threads(forum_slug, created ASC);
+CREATE INDEX ON threads(forum_slug, created DESC);
 -- CREATE INDEX ON threads(id); ALREADY EXISTS
 CREATE INDEX ON threads(slug, id);
 CREATE INDEX ON threads(id, forum_slug);
@@ -74,8 +74,6 @@ CREATE INDEX ON posts(thread, path DESC);
 CREATE INDEX ON posts(thread, path ASC);
 CREATE INDEX ON posts(thread, id DESC);
 CREATE INDEX ON posts(thread, id ASC);
-
-
 
 CREATE UNLOGGED TABLE votes
 (
