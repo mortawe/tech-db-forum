@@ -19,8 +19,7 @@ func NewForumRepo(db *pgx.ConnPool) *ForumRepo {
 func (r *ForumRepo) Insert(forum *models.Forum) error {
 	err := r.db.QueryRow("INSERT INTO forums (slug, title, nickname) "+
 		"VALUES ($1, $2, $3) "+
-		"RETURNING forums.* ", &forum.Slug, &forum.Title, &forum.User).Scan(&forum.Slug, &forum.Title, &forum.User,
-			&forum.Posts, &forum.Threads)
+		"RETURNING posts,threads", &forum.Slug, &forum.Title, &forum.User).Scan(&forum.Posts, &forum.Threads)
 
 	if err != nil {
 		switch db.ErrorCode(err) {
@@ -47,7 +46,7 @@ func (r *ForumRepo) SelectBySlug(slug string) (*models.Forum, error) {
 
 func (r *ForumRepo) GetUsersByForum(slug string, desc bool, since string, limit int) ([]models.User, error) {
 	users := []models.User{}
-	query := "SELECT DISTINCT users.* " +
+	query := "SELECT users.about, users.email, users.fullname, users.nickname " +
 		"FROM forum_users " +
 		"JOIN users on users.nickname = forum_users.author " +
 		"WHERE slug = $1 "
@@ -92,7 +91,7 @@ func (r *ForumRepo) GetUsersByForum(slug string, desc bool, since string, limit 
 		}
 		users = append(users, user)
 	}
-	return users, nil
+	return users, rows.Err()
 }
 
 func (r *ForumRepo) SelectForumWithCase(slug string) (string, error) {

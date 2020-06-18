@@ -18,11 +18,10 @@ func NewUserRepo(db *pgx.ConnPool) *UserRepo {
 func (r *UserRepo) Insert(user *models.User) error {
 	_, err := r.db.Exec("INSERT INTO users "+
 		"VALUES ($1, $2, $3, $4)",
-		user.About,
-		user.Email,
-		user.Fullname,
 		user.Nickname,
-	)
+		user.Email,
+		user.About,
+		user.Fullname)
 	switch err {
 	case nil:
 		return nil
@@ -42,10 +41,10 @@ func (r *UserRepo) Update(user *models.User) error {
 	if user.Email != "" {
 		query += " email = '" + user.Email + "' , "
 	}
-	query = query[:len(query) - 2]
-	query += "WHERE nickname = '" + user.Nickname + "' RETURNING * "
+	query = query[:len(query)-2]
+	query += "WHERE nickname = '" + user.Nickname + "' RETURNING about, email, fullname, nickname "
 	if user.About == "" && user.Email == "" && user.Fullname == "" {
-		query = "SELECT * FROM users WHERE nickname = '" + user.Nickname + "' "
+		query = "SELECT about, email, fullname, nickname FROM users WHERE nickname = '" + user.Nickname + "' "
 	}
 	err := r.db.QueryRow(query).Scan(&user.About, &user.Email, &user.Fullname, &user.Nickname)
 	if err != nil {
@@ -62,9 +61,9 @@ func (r *UserRepo) Update(user *models.User) error {
 func (r *UserRepo) SelectByNickname(nickname string) (models.User, error) {
 	user := models.User{}
 	err := r.db.QueryRow("SELECT * FROM users "+
-		"WHERE nickname = $1 ", nickname).Scan(&user.About, &user.Email, &user.Fullname, &user.Nickname)
+		"WHERE nickname = $1 ", nickname).Scan(&user.Nickname, &user.Email, &user.About, &user.Fullname)
 	switch err {
-	case pgx.ErrNoRows :
+	case pgx.ErrNoRows:
 		return models.User{}, models.ErrNotExists
 	default:
 		return user, err
@@ -80,7 +79,7 @@ func (r *UserRepo) SelectByEmailOrNickname(nickname string, email string) (model
 	}
 	for rows.Next() {
 		user := models.User{}
-		rows.Scan(&user.About, &user.Email, &user.Fullname, &user.Nickname)
+		rows.Scan(&user.Nickname, &user.Email, &user.About, &user.Fullname)
 		users = append(users, user)
 	}
 	return users, nil

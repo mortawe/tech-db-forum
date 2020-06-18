@@ -2,13 +2,16 @@ CREATE EXTENSION IF NOT EXISTS citext;
 
 CREATE UNLOGGED TABLE users
 (
-    about    TEXT               NOT NULL,
+    nickname CITEXT PRIMARY KEY NOT NULL,
     email    CITEXT UNIQUE      NOT NULL,
-    fullname TEXT               NOT NULL,
-    nickname CITEXT PRIMARY KEY NOT NULL
+    about    TEXT               NOT NULL,
+    fullname TEXT               NOT NULL
 );
 
 CREATE UNIQUE INDEX ON users (nickname, email);
+CREATE UNIQUE INDEX ON users (nickname, email, about, fullname);
+-- CREATE UNIQUE INDEX ON users (nickname ASC); ALREADY EXISTS
+CREATE UNIQUE INDEX ON users (nickname DESC);
 
 CREATE UNLOGGED TABLE forums
 (
@@ -19,7 +22,8 @@ CREATE UNLOGGED TABLE forums
     threads  INTEGER DEFAULT 0                                    NOT NULL
 );
 
-CREATE INDEX ON forums (slug);
+-- CREATE UNIQUE INDEX ON forums(slug); ALREADY EXISTS ?
+-- CREATE UNIQUE INDEX ON forums(slug, title, nickname, posts, threads); DOES NOT WORKS BECAUSE OF DEADLOCK =)
 
 CREATE UNLOGGED TABLE forum_users
 (
@@ -27,6 +31,9 @@ CREATE UNLOGGED TABLE forum_users
     slug   CITEXT REFERENCES forums (slug) ON DELETE CASCADE    NOT NULL,
     PRIMARY KEY (slug, author)
 );
+
+CREATE INDEX ON forum_users (slug);
+CREATE INDEX ON forum_users (author);
 
 CREATE UNLOGGED TABLE threads
 (
@@ -39,6 +46,14 @@ CREATE UNLOGGED TABLE threads
     title      TEXT                                                  NOT NULL,
     votes      INTEGER                     DEFAULT 0                 NOT NULL
 );
+
+CREATE INDEX ON threads(slug, author, created, forum_slug, id, message,title, votes);
+CREATE INDEX ON threads(forum_slug, created ASC, author, forum_slug, id, message, slug, title, votes);
+CREATE INDEX ON threads(forum_slug, created DESC, author, forum_slug, id, message, slug, title, votes);
+-- CREATE INDEX ON threads(id); ALREADY EXISTS
+CREATE INDEX ON threads(slug, id);
+CREATE INDEX ON threads(id, forum_slug);
+CREATE INDEX ON threads(slug, id, forum_slug);
 
 CREATE UNLOGGED TABLE posts
 (
@@ -53,6 +68,15 @@ CREATE UNLOGGED TABLE posts
     path       INTEGER ARRAY               DEFAULT '{}'              NOT NULL
 );
 
+CREATE UNIQUE INDEX ON posts(id, thread);
+CREATE UNIQUE INDEX ON posts(id, author, created, forum_slug, edited, message, parent, thread);
+CREATE INDEX ON posts(thread, path DESC , id, author, created, forum_slug, edited, message, parent);
+CREATE INDEX ON posts(thread, path ASC , id, author, created, forum_slug, edited, message, parent);
+CREATE INDEX ON posts(thread, id DESC, author, created, forum_slug, edited, message, parent);
+CREATE INDEX ON posts(thread, id ASC, author, created, forum_slug, edited, message, parent);
+
+
+
 CREATE UNLOGGED TABLE votes
 (
     nickname  CITEXT REFERENCES users (nickname) ON DELETE CASCADE NOT NULL,
@@ -61,6 +85,8 @@ CREATE UNLOGGED TABLE votes
     PRIMARY KEY (thread_id, nickname)
 );
 
+CREATE UNIQUE INDEX ON votes(thread_id, nickname);
+
 CREATE INDEX ON threads (slug, id);
 
 -- PATH TO POST UPDATE
@@ -68,7 +94,7 @@ CREATE FUNCTION update_path() RETURNS TRIGGER AS
 $$
 DECLARE
     temp INT ARRAY;
-    t INTEGER;
+    t    INTEGER;
 BEGIN
     IF new.parent ISNULL OR new.parent = 0 THEN
         new.path = ARRAY [new.id];
@@ -77,7 +103,7 @@ BEGIN
         INTO t
         FROM posts
         WHERE id = new.parent;
-        IF  t ISNULL  OR t <> new.thread THEN
+        IF t ISNULL OR t <> new.thread THEN
             RAISE EXCEPTION 'Not in this thread ID ' USING HINT = 'Please check your parent ID';
         END IF;
 
@@ -103,7 +129,8 @@ CREATE FUNCTION vote_count_upd() RETURNS TRIGGER AS
 $$
 BEGIN
     IF (old.vote != new.vote) THEN
-        UPDATE threads SET votes = (votes - old.vote + new.vote)
+        UPDATE threads
+        SET votes = (votes - old.vote + new.vote)
         WHERE id = new.thread_id;
     END IF;
     RETURN new;
@@ -119,7 +146,8 @@ EXECUTE PROCEDURE vote_count_upd();
 CREATE FUNCTION vote_count_insert() RETURNS TRIGGER AS
 $$
 BEGIN
-    UPDATE threads SET votes = (votes + new.vote)
+    UPDATE threads
+    SET votes = (votes + new.vote)
     WHERE id = new.thread_id;
     RETURN new;
 END;
@@ -193,4 +221,32 @@ CREATE TRIGGER update_forum_counters_after_thread_insert
     FOR EACH ROW
 EXECUTE PROCEDURE update_forum_counter_threads();
 
---
+-- НАБОР 1
+-- 05:52:52.176 INFO Requests per second: 1831.10
+-- 05:53:02.177 INFO Requests per second: 1914.50
+-- 05:53:12.177 INFO Requests per second: 1795.80
+-- 05:53:22.177 INFO Requests per second: 1705.30
+-- 05:53:32.177 INFO Requests per second: 1769.50
+-- 05:53:42.178 INFO Requests per second: 1720.20
+-- 05:53:52.178 INFO Requests per second: 1531.10
+-- 05:54:02.179 INFO Requests per second: 1131.10
+
+
+-- НАБОР 2 (текущий)
+-- 14:39:08.907 INFO Requests per second: 2736.00
+-- 14:39:18.907 INFO Requests per second: 2990.90
+-- 14:39:28.907 INFO Requests per second: 2756.10
+-- 14:39:38.907 INFO Requests per second: 2451.80
+-- 14:39:48.907 INFO Requests per second: 2643.80
+-- 14:39:58.907 INFO Requests per second: 2788.70
+-- 14:40:08.907 INFO Requests per second: 2683.30
+-- 14:40:18.908 INFO Requests per second: 2618.00
+-- 14:40:28.908 INFO Requests per second: 2632.60
+
+VACUUM ANALYSE;
+
+-- НАБОР 3 (с ANALYSE)
+-- 14:43:43.983 INFO Requests per second: 3047.30
+-- 14:43:53.983 INFO Requests per second: 3021.50
+-- 14:44:03.983 INFO Requests per second: 3069.80
+-- 14:44:13.983 INFO Requests per second: 2952.90

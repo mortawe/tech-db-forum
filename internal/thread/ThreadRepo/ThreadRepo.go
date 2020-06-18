@@ -50,7 +50,7 @@ func (r *ThreadRepo) SelectThreadByID(id int) (*models.Thread, error) {
 func (r *ThreadRepo) SelectThreadsByForum(slug string, limit int, since string, desc bool) ([]models.Thread, error) {
 	threads := []models.Thread{}
 
-	query := "SELECT * FROM threads WHERE forum_slug = $1 "
+	query := "SELECT author, created, forum_slug, id, message, slug, title, votes FROM threads WHERE forum_slug = $1 "
 	rows := &pgx.Rows{}
 	var err error
 	if limit > 0  && since != "" {
@@ -97,7 +97,7 @@ func (r *ThreadRepo) SelectThreadsByForum(slug string, limit int, since string, 
 
 func (r *ThreadRepo) SelectThreadBySlug(slug string) (*models.Thread, error) {
 	thread := models.Thread{}
-	err := r.db.QueryRow("SELECT * FROM threads WHERE slug = $1", slug).Scan(&thread.Author, &thread.Created,
+	err := r.db.QueryRow("SELECT author, created, forum_slug, id, message, slug, title, votes FROM threads WHERE slug = $1", slug).Scan(&thread.Author, &thread.Created,
 		&thread.Forum, &thread.ID, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
 	if err != nil {
 		return nil, err
