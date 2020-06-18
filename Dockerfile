@@ -1,10 +1,10 @@
-FROM golang:1.13-stretch AS builder
-
-WORKDIR /build
-COPY . .
-
-USER root
-RUN go build  ./cmd/server/run.go
+#FROM golang:1.13-stretch AS builder
+#
+#WORKDIR /build
+#COPY . .
+#
+#USER root
+#RUN go build  ./cmd/server/run.go
 
 FROM ubuntu:20.04
 COPY . .
@@ -31,10 +31,10 @@ VOLUME  ["/etc/postgresql", "/var/log/postgresql", "/var/lib/postgresql"]
 
 
 
-#USER postgres
-#CMD ["/usr/lib/postgresql/12/bin/postgres", "-D", "/var/lib/postgresql/12/main", "-c", "config_file=/etc/postgresql/12/main/postgresql.conf"]
+USER postgres
+CMD ["/usr/lib/postgresql/12/bin/postgres", "-D", "/var/lib/postgresql/12/main", "-c", "config_file=/etc/postgresql/12/main/postgresql.conf"]
 #CMD ./run
 
-USER root
-COPY --from=builder  /build/run /usr/bin
-CMD /etc/init.d/postgresql start && run
+#USER root
+#COPY --from=builder  /build/run /usr/bin
+#CMD /etc/init.d/postgresql start && run

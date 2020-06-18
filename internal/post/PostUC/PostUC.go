@@ -5,9 +5,11 @@ import (
 	"github.com/mortawe/tech-db-forum/internal/models"
 	"github.com/mortawe/tech-db-forum/internal/post"
 )
+
 var (
 	ParentErr = errors.New("parent")
 )
+
 type PostUC struct {
 	repo post.IPostRepo
 }
@@ -16,23 +18,8 @@ func NewPostUC(repo post.IPostRepo) *PostUC {
 	return &PostUC{repo: repo}
 }
 
-func (uc *PostUC) InsertPost(posts []*models.Post, forum string, threadID int) error {
-	for _, post := range posts {
-		if post.Parent != 0 {
-			parentPostThreadID, err := uc.repo.SelectThreadByPostID(post.Parent)
-			if err != nil {
-				return ParentErr
-			}
-			if parentPostThreadID != threadID {
-				return ParentErr
-			}
-		}
-		post.Forum = forum
-		post.Thread = threadID
-		post.IsEdited = false
-	}
-	err := uc.repo.InsertPosts(posts)
-	return err
+func (uc *PostUC) InsertPost(posts []*models.Post, forum string, id int) error {
+	return uc.repo.InsertPost(posts, forum, id)
 }
 
 func (uc *PostUC) Update(post *models.Post) error {

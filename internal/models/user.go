@@ -12,3 +12,5 @@ type GetUserParams struct {
 	Since string `json:"since"`
 	Desc  bool   `json:"desc"`
 }
+
+type Users []User

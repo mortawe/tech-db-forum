@@ -25,6 +25,10 @@ func (uUC *UserUC) SelectByNickname(nickname string) (models.User, error) {
 	return uUC.repo.SelectByNickname(nickname)
 }
 
-func (uUC *UserUC) SelectByEmail(email string) (models.User, error) {
-	return uUC.repo.SelectByEmail(email)
+func (uUC *UserUC) SelectByEmailOrNickname(nickname string, email string) (models.Users, error) {
+	return uUC.repo.SelectByEmailOrNickname(nickname, email)
+}
+
+func (uUC *UserUC) SelectNicknameWithCase(nickname string) (string, error) {
+	return uUC.repo.SelectNicknameWithCase(nickname)
 }

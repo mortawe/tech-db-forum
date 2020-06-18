@@ -25,3 +25,7 @@ func (uc *ForumUC) GetUsersByForum(slug string, desc bool, since string, limit i
 	return uc.repo.GetUsersByForum(slug, desc, since, limit)
 }
 
+func (uc *ForumUC)  SelectForumWithCase(slug string) (string, error) {
+	return uc.repo.SelectForumWithCase(slug)
+}
+

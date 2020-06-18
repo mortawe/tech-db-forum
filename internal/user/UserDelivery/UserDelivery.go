@@ -2,10 +2,12 @@ package UserDelivery
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/fasthttp/router"
 	"github.com/mortawe/tech-db-forum/internal/forum"
 	"github.com/mortawe/tech-db-forum/internal/models"
 	"github.com/mortawe/tech-db-forum/internal/user"
+	"github.com/mortawe/tech-db-forum/internal/utils"
 	"github.com/valyala/fasthttp"
 )
 
@@ -26,117 +28,78 @@ func (m *UserManager) InitRoutes(r *router.Router) {
 
 func (m *UserManager) CreateUser(ctx *fasthttp.RequestCtx) {
 	user := &models.User{}
-	ctx.SetContentType("application/json")
-	if err := json.Unmarshal(ctx.PostBody(), user); err != nil {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		ctx.Write([]byte("user create not ok when unmarshal : " + err.Error()))
+	if err := user.UnmarshalJSON(ctx.PostBody()); err != nil {
+		utils.Send(400, ctx, utils.MustMarshalError(err))
 		return
 	}
 	user.Nickname = ctx.UserValue("nickname").(string)
 	if user.Nickname == "" {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		ctx.Write([]byte("user create not ok when get nickname : "+ user.Nickname))
+		utils.Send(400, ctx, utils.MustMarshalError(errors.New("no nickname")))
 		return
 	}
-	arr := []models.User{}
-	userInDB, err := m.uUC.SelectByNickname(user.Nickname)
-	if err == nil {
-		ctx.SetStatusCode(409)
-		arr = append(arr, userInDB)
-	}
-	userInDBEmail, err := m.uUC.SelectByEmail(user.Email)
-	if err == nil && userInDBEmail.Nickname != userInDB.Nickname {
-		ctx.SetStatusCode(409)
-		arr = append(arr, userInDBEmail)
+	err := m.uUC.Insert(user)
+	switch err {
+	case models.ErrConflict:
+		usersAlreadyExist, err := m.uUC.SelectByEmailOrNickname(user.Nickname, user.Email)
+		if err != nil {
+			utils.Send(400, ctx, utils.MustMarshalError(err))
+			return
+		}
+		resp, _ := json.Marshal(usersAlreadyExist)
+		utils.Send(409, ctx, resp)
+	case nil:
+		resp, _ := user.MarshalJSON()
+		utils.Send(201, ctx, resp)
+	default:
+		utils.Send(500, ctx, utils.MustMarshalError(err))
+		return
 	}
 
-	if len(arr) > 0 {
-		resp, _ := json.Marshal(arr)
-		ctx.Write(resp)
-		return
-	}
-	if err := m.uUC.Insert(user); err != nil {
-		ctx.SetStatusCode(409)
-
-		arr := []models.User{userInDB}
-		resp, _ := json.Marshal(arr)
-		ctx.Write(resp)
-		return
-	}
-	resp, _ := json.Marshal(user)
-	ctx.Write(resp)
-	ctx.SetStatusCode(201)
 
 }
 
 func (m *UserManager) UpdateProfile(ctx *fasthttp.RequestCtx) {
 	user := &models.User{}
-	ctx.SetContentType("application/json")
-	if err := json.Unmarshal(ctx.PostBody(), user); err != nil {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		ctx.Write([]byte(`{"message": "Can't unmarshal'"}`))
+	if err := user.UnmarshalJSON(ctx.PostBody()); err != nil {
+		utils.Send(400, ctx, utils.MustMarshalError(err))
 		return
 	}
 	user.Nickname = ctx.UserValue("nickname").(string)
 	if user.Nickname == "" {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		ctx.Write([]byte(`{"message": "user nickname is empty"}`))
+		utils.Send(400, ctx, utils.MustMarshalError(errors.New("no nickname")))
 		return
 	}
-	userInDB, err := m.uUC.SelectByNickname(user.Nickname)
-	if err != nil {
-		ctx.SetStatusCode(404)
-		ctx.Write([]byte(`{"message": "can't select by nickname'"}`))
-		return
+	err := m.uUC.Update(user)
+	switch err {
+	case models.ErrConflict:
+		utils.Send(409, ctx, utils.MustMarshalError(err))
+	case models.ErrNotExists:
+		utils.Send(404, ctx, utils.MustMarshalError(err))
+	case nil:
+		resp, _ := user.MarshalJSON()
+		utils.Send(200, ctx, resp)
+	default:
+		utils.Send(500, ctx, utils.MustMarshalError(err))
 	}
-	if userInDB.Nickname != user.Nickname {
-		ctx.SetStatusCode(409)
-		ctx.Write([]byte(`{"message": "` + userInDB.Nickname + " " + user.Nickname + `"}`) )
-		return
-	}
-	if user.Email == "" {
-		user.Email = userInDB.Email
-	}
-	if user.About == "" {
-		user.About = userInDB.About
-	}
-	if user.Fullname == "" {
-		user.Fullname = userInDB.Fullname
-	}
-	if _, err := m.uUC.SelectByEmail(user.Email); err == nil && userInDB.Email != user.Email {
-		ctx.SetStatusCode(409)
-		ctx.Write([]byte(`{"message": "` + userInDB.Email + " " + user.Email + `"}`))
-		return
-	}
-
-	if err := m.uUC.Update(user); err != nil {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		ctx.Write([]byte(`{"message": "Can't update : ` + err.Error() + `"}`))
-		return
-	}
-	ctx.SetStatusCode(200)
-	resp, _ := json.Marshal(user)
-	ctx.Write(resp)
 }
 
 func (m *UserManager) GetProfile(ctx *fasthttp.RequestCtx) {
-	ctx.SetContentType("application/json")
-
 	user := &models.User{}
 
 	user.Nickname = ctx.UserValue("nickname").(string)
 	if user.Nickname == "" {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		ctx.Write([]byte("not ok when get nickname : " + user.Nickname))
+		utils.Send(400, ctx, []byte(`Can't get nickname`))
 		return
 	}
 	userInDB, err := m.uUC.SelectByNickname(user.Nickname)
-	if err != nil {
-		ctx.SetStatusCode(404)
-		ctx.Write([]byte(`{"message": "Can't'"}`))
+	switch err {
+	case models.ErrNotExists :
+		utils.Send(404, ctx, utils.MustMarshalError(err))
 		return
+	case nil:
+		resp, _ := userInDB.MarshalJSON()
+		utils.Send(200, ctx, resp)
+	default:
+		utils.Send(500, ctx, utils.MustMarshalError(err))
 	}
-	resp, _ := json.Marshal(userInDB)
-	ctx.Write(resp)
-	ctx.SetStatusCode(200)
 }

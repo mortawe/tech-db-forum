@@ -17,9 +17,6 @@ func NewForumUC(repo thread.IThreadRepo) *ThreadUC {
 func (uc *ThreadUC) InsertThread(thread *models.Thread) error {
 	return uc.repo.InsertThread(thread)
 }
-func (uc *ThreadUC) SelectThreadByTitle(title string) (*models.Thread, error) {
-	return uc.repo.SelectThreadByTitle(title)
-}
 
 func (uc *ThreadUC) SelectThreadsByForum(slug string, limit int, since string, desc bool) ([]models.Thread, error) {
 	return uc.repo.SelectThreadsByForum(slug, limit, since, desc)
@@ -49,5 +46,19 @@ func (uc *ThreadUC) Vote(vote models.Vote, slug string) (models.Thread, error) {
 		return uc.repo.VoteBySlug(vote, slug)
 	} else {
 		return uc.repo.VoteByID(vote, id)
+	}
+}
+
+func (uc *ThreadUC) UpdateBySlugOrID(s string, thread *models.Thread) error {
+	return uc.repo.UpdateBySlugOrID(s, thread)
+}
+
+func (uc *ThreadUC) GetIDForumBySlugOrID(s string) (int, string, error) {
+	value, err := strconv.Atoi(s)
+	if err == nil {
+		forum, err := uc.repo.SelectForumByThreadID(value)
+		return value, forum, err
+	} else {
+		return uc.repo.GetIDForumBySlugOrID(s)
 	}
 }

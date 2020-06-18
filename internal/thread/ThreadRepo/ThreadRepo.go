@@ -1,8 +1,11 @@
 package ThreadRepo
 
 import (
+	"errors"
 	"github.com/jackc/pgx"
 	"github.com/mortawe/tech-db-forum/internal/models"
+	"github.com/mortawe/tech-db-forum/internal/utils/db"
+	"strconv"
 )
 
 type ThreadRepo struct {
@@ -16,22 +19,23 @@ func NewThreadRepo(db *pgx.ConnPool) *ThreadRepo {
 }
 
 func (r *ThreadRepo) InsertThread(thread *models.Thread) error {
-	err := r.db.QueryRow("INSERT INTO threads (author, created, forum, message, slug, title) " +
+	err := r.db.QueryRow("INSERT INTO threads (author, created, " +
+		"forum_slug, message, slug, title) " +
 		"VALUES ($1, $2, $3, $4, $5, $6) " +
-		"RETURNING id, votes", &thread.Author, &thread.Created, &thread.Forum, &thread.Message, &thread.Slug,
-		&thread.Title).Scan(&thread.ID, &thread.Votes)
-	return err
+		"RETURNING id", &thread.Author, &thread.Created, &thread.Forum, &thread.Message, &thread.Slug,
+		&thread.Title).Scan(&thread.ID)
+	if err != nil {
+		switch db.ErrorCode(err) {
+			case db.PgErrUniqueViolation:
+				return models.ErrConflict
+		default:
+			return errors.New(err.Error() + " " + thread.Forum + " " + thread.Author)
+		}
+	} else {
+		return nil
+	}
 }
 
-func (r *ThreadRepo) SelectThreadByTitle(title string) (*models.Thread, error) {
-	thread := models.Thread{}
-	err := r.db.QueryRow("SELECT * FROM threads WHERE title = $1", title).Scan(&thread.Author, &thread.Created,
-		&thread.Forum, &thread.ID, &thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
-	if err != nil {
-		return nil, err
-	}
-	return &thread, nil
-}
 
 func (r *ThreadRepo) SelectThreadByID(id int) (*models.Thread, error) {
 	thread := &models.Thread{}
@@ -46,7 +50,7 @@ func (r *ThreadRepo) SelectThreadByID(id int) (*models.Thread, error) {
 func (r *ThreadRepo) SelectThreadsByForum(slug string, limit int, since string, desc bool) ([]models.Thread, error) {
 	threads := []models.Thread{}
 
-	query := "SELECT * FROM threads WHERE forum = $1 "
+	query := "SELECT * FROM threads WHERE forum_slug = $1 "
 	rows := &pgx.Rows{}
 	var err error
 	if limit > 0  && since != "" {
@@ -105,7 +109,7 @@ func (r *ThreadRepo) SelectThreadBySlug(slug string) (*models.Thread, error) {
 func (r *ThreadRepo) Update(thread *models.Thread) error {
 	err := r.db.QueryRow("UPDATE threads "+
 		"SET author = $1, "+
-		"forum = $2, "+
+		"forum_slug = $2, "+
 		"message = $3, " +
 		"slug = $4, " +
 		"title = $5  " +
@@ -116,14 +120,44 @@ func (r *ThreadRepo) Update(thread *models.Thread) error {
 	return err
 }
 
+func (r *ThreadRepo) UpdateBySlugOrID(s string, thread *models.Thread) error {
+	query := "UPDATE THREADS SET   "
+	if thread.Author != "" {
+		query += "author = '" + thread.Author + "', "
+	}
+	if thread.Message != "" {
+		query += "message = '" + thread.Message + "', "
+	}
+	if thread.Title != "" {
+		query += "title = '" + thread.Title + "', "
+	}
+	query = query[:len(query) - 2]
+	value, err := strconv.Atoi(s)
+	if err != nil {
+		value = -1
+	}
+	query += " WHERE id = $1 OR slug = $2 RETURNING threads.*"
+	if thread.Author == "" && thread.Message == "" && thread.Title == "" {
+		query = "SELECT * FROM threads WHERE id = $1 OR slug = $2"
+	}
+	err = r.db.QueryRow(query, &value, &s).Scan(&thread.Author, &thread.Created, &thread.Forum, &thread.ID,
+		&thread.Message, &thread.Slug, &thread.Title, &thread.Votes)
+	switch err {
+	case nil:
+		return nil
+	default:
+		return err
+	}
+}
+
 func (r *ThreadRepo) VoteBySlug(vote models.Vote, slug string) (models.Thread, error) {
 	thread, err := r.SelectThreadBySlug(slug)
 	if err != nil {
 		return models.Thread{}, err
 	}
-	_, err = r.db.Exec(`INSERT INTO votes (threadid, nickname, vote)
+	_, err = r.db.Exec(`INSERT INTO votes (thread_id, nickname, vote)
 			VALUES ($1, $2, $3)
-			ON CONFLICT (threadid, nickname) DO UPDATE SET vote = $3`,
+			ON CONFLICT (thread_id, nickname) DO UPDATE SET vote = $3`,
 		thread.ID,
 		vote.Nickname,
 		vote.Voice,
@@ -142,9 +176,9 @@ func (r *ThreadRepo) VoteBySlug(vote models.Vote, slug string) (models.Thread, e
 
 func (r *ThreadRepo) VoteByID(vote models.Vote, id int) (models.Thread, error) {
 	_, err := r.db.Exec(`
-			INSERT INTO votes (threadid, nickname, vote)
+			INSERT INTO votes (thread_id, nickname, vote)
 			VALUES ($1, $2, $3)
-			ON CONFLICT (threadid, nickname) DO UPDATE SET vote = $3`,
+			ON CONFLICT (thread_id, nickname) DO UPDATE SET vote = $3`,
 		id,
 		vote.Nickname,
 		vote.Voice,
@@ -158,3 +192,17 @@ func (r *ThreadRepo) VoteByID(vote models.Vote, id int) (models.Thread, error) {
 	}
 	return *thread, nil
 }
+
+func (r *ThreadRepo) GetIDForumBySlugOrID(s string) (int, string, error) {
+	forum := ""
+	res := 0
+	err := r.db.QueryRow("SELECT id, forum_slug FROM threads WHERE slug = $1", s).Scan(&res, &forum)
+	return res, forum, err
+}
+
+func (r *ThreadRepo)  SelectForumByThreadID(id int) (string, error){
+	forum := ""
+	err := r.db.QueryRow("SELECT forum_slug FROM threads WHERE id = $1", id).Scan(&forum)
+	return forum, err
+}
+

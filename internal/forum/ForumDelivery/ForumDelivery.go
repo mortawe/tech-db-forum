@@ -6,9 +6,8 @@ import (
 	"github.com/mortawe/tech-db-forum/internal/forum"
 	"github.com/mortawe/tech-db-forum/internal/models"
 	"github.com/mortawe/tech-db-forum/internal/user"
-	"github.com/sirupsen/logrus"
+	"github.com/mortawe/tech-db-forum/internal/utils"
 	"github.com/valyala/fasthttp"
-	"strconv"
 )
 
 type ForumManager struct {
@@ -27,81 +26,63 @@ func (m *ForumManager) InitRoutes(r *router.Router) {
 }
 
 func (m *ForumManager) CreateForum(ctx *fasthttp.RequestCtx) {
-	ctx.SetContentType("application/json")
-
-	logrus.Println("forum create")
 	forum := &models.Forum{}
-
-	if err := json.Unmarshal(ctx.PostBody(), forum); err != nil {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		ctx.Write([]byte(`{"message": "` + "umarshal" + `"}`))
+	if err  := forum.UnmarshalJSON(ctx.PostBody()); err != nil {
+		utils.Send(400, ctx, utils.MustMarshalError(err))
 		return
 	}
-	user, _ := m.uUC.SelectByNickname(forum.User)
-	forum.User = user.Nickname
-	forumInBase, err := m.fUC.SelectBySlug(forum.Slug)
-	if err == nil {
-		ctx.SetStatusCode(409)
-		resp, _ := json.Marshal(forumInBase)
-		ctx.Write(resp)
-		return
-	}
-	//log.Println(err)
-	err = m.fUC.Create(forum)
+	var err error
+	forum.User, err = m.uUC.SelectNicknameWithCase(forum.User)
 	if err != nil {
-		ctx.SetStatusCode(404)
-		ctx.Write([]byte(`{"message": "` + `"}`))
+		utils.Send(404, ctx, utils.MustMarshalError(err))
 		return
 	}
-	resp, _ := json.Marshal(forum)
-	ctx.Write(resp)
-	ctx.SetStatusCode(fasthttp.StatusCreated)
+	err = m.fUC.Create(forum)
+	
+	switch err {
+	case models.ErrNotExists:
+		utils.Send(404, ctx, utils.MustMarshalError(err))
+	case models.ErrConflict:
+		forumInBase, _ := m.fUC.SelectBySlug(forum.Slug)
+		resp, _ := forumInBase.MarshalJSON()
+		utils.Send(409, ctx, resp)
+	case nil:
+		resp, _ := json.Marshal(forum)
+		utils.Send(201, ctx, resp)
+	default:
+		utils.Send(500, ctx, utils.MustMarshalError(err))
+	}
 }
 
 func (m *ForumManager) Details(ctx *fasthttp.RequestCtx) {
-	ctx.SetContentType("application/json")
-
 	slug := ctx.UserValue("slug").(string)
-	resp := []byte("")
 
 	forum, err := m.fUC.SelectBySlug(slug)
-
-	if err != nil {
-		ctx.SetStatusCode(404)
-		ctx.Write([]byte(`{"message": "` + "exit forum detailes bad req" + `"}`))
-		return
+	switch err {
+	case nil:
+		resp, _ := forum.MarshalJSON()
+		utils.Send(200, ctx, resp)
+	default:
+		utils.Send(404, ctx, utils.MustMarshalError(err))
 	}
-
-	resp, _ = json.Marshal(forum)
-	ctx.SetStatusCode(200)
-	ctx.Write(resp)
 }
 
 func (m *ForumManager) GetUsersByForum(ctx *fasthttp.RequestCtx) {
-	ctx.SetContentType("application/json")
-	params := &models.GetThreadsParams{}
-	params.Since = string(ctx.FormValue("since"))
-	if string(ctx.FormValue("desc")) == "true" {
-		params.Desc = true
-	} else {
-		params.Desc = false
-	}
-	params.Limit, _ = strconv.Atoi(string(ctx.FormValue("limit")))
-
+	params := utils.MustGetParams(ctx)
 	slug := ctx.UserValue("slug").(string)
-	thread, err := m.fUC.SelectBySlug(slug)
-	if err != nil {
-		ctx.SetStatusCode(404)
-		ctx.Write([]byte(`{"message": "` + err.Error() + `"}`))
+	var err error
+	if slug, err = m.fUC.SelectForumWithCase(slug); err != nil {
+		utils.Send(404, ctx, utils.MustMarshalError(err))
 		return
 	}
-	users, err := m.fUC.GetUsersByForum(thread.Slug, params.Desc, params.Since, params.Limit)
-	if err != nil {
-		ctx.SetStatusCode(404)
-		ctx.Write([]byte(`{"message": "` + err.Error() + `"}`))
-		return
+	users, err := m.fUC.GetUsersByForum(slug, params.Desc, params.Since, params.Limit)
+
+	switch err {
+	case nil:
+		resp, _ := json.Marshal(users)
+		utils.Send(200, ctx, resp)
+	default:
+		utils.Send(404, ctx, utils.MustMarshalError(err))
 	}
-	resp, _ := json.Marshal(users)
-	ctx.SetStatusCode(200)
-	ctx.Write(resp)
+
 }

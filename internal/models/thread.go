@@ -13,13 +13,6 @@ type Thread struct {
 	Votes   int       `json:"votes"`
 }
 
-type GetThreadsParams struct {
-	Limit int    `json:"limit"`
-	Since string `json:"since"`
-	Desc  bool   `json:"desc"`
-	Sort  string `json:"sort"`
-}
-
 type Vote struct {
 	Nickname string `json:"nickname"`
 	Voice    int    `json:"voice"`

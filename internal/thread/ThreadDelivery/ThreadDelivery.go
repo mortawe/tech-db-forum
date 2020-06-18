@@ -2,13 +2,14 @@ package ThreadDelivery
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/fasthttp/router"
 	"github.com/mortawe/tech-db-forum/internal/forum"
 	"github.com/mortawe/tech-db-forum/internal/models"
 	"github.com/mortawe/tech-db-forum/internal/thread"
 	"github.com/mortawe/tech-db-forum/internal/user"
+	"github.com/mortawe/tech-db-forum/internal/utils"
 	"github.com/valyala/fasthttp"
-	"strconv"
 )
 
 type ThreadManager struct {
@@ -26,159 +27,116 @@ func NewThreadManager(fUC forum.IForumUC, uUC user.IUserUC, tUC thread.IThreadUC
 }
 
 func (m *ThreadManager) InitRoutes(r *router.Router) {
-	r.POST("/api/forum/{slug}/create", m.CreateThread)
 	r.GET("/api/forum/{slug}/threads", m.GetThreadsByForum)
 	r.GET("/api/thread/{slugOrID}/details", m.Details)
+	r.POST("/api/forum/{slug}/create", m.CreateThread)
 	r.POST("/api/thread/{slugOrID}/details", m.Update)
 	r.POST("/api/thread/{slugOrID}/vote", m.Vote)
 }
 
 func (m *ThreadManager) CreateThread(ctx *fasthttp.RequestCtx) {
-	ctx.SetContentType("application/json")
-
 	thread := &models.Thread{}
-
-	if err := json.Unmarshal(ctx.PostBody(), thread); err != nil {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		ctx.Write([]byte(`{"message": "` + "unmarshal not ok" + `" }`))
-		return
-	}
-	threadInDB, err := m.tUC.SelectThreadBySlug(thread.Slug)
-	if thread.Slug != "" && err == nil {
-		ctx.SetStatusCode(409)
-		resp, _ := json.Marshal(threadInDB)
-		ctx.Write(resp)
+	if err := thread.UnmarshalJSON(ctx.PostBody()); err != nil {
+		utils.Send(400, ctx, utils.MustMarshalError(err))
 		return
 	}
 	thread.Forum = ctx.UserValue("slug").(string)
-	forum, err := m.fUC.SelectBySlug(thread.Forum)
+	var err error
+	thread.Forum, err = m.fUC.SelectForumWithCase(thread.Forum)
 	if err != nil {
-		ctx.SetStatusCode(404)
-		ctx.Write([]byte(`{"message": "` + "forum does not exists" + `" }`))
+		utils.Send(404, ctx, utils.MustMarshalError(err))
 		return
 	}
-	thread.Forum = forum.Slug
-	user, err := m.uUC.SelectByNickname(thread.Author)
+	nickname, err := m.uUC.SelectNicknameWithCase(thread.Author)
 	if err != nil {
-		ctx.SetStatusCode(404)
-		ctx.Write([]byte(`{"message": "` + "user does not exists : " + err.Error() + " nickname : " + thread.Author + `" }`))
+		utils.Send(404, ctx, utils.MustMarshalError(err))
 		return
 	}
-	thread.Author = user.Nickname
+	thread.Author = nickname
+	threadInBase := models.Thread{}
+	if thread.Slug != "" {
+		threadInBase, err := m.tUC.SelectThreadBySlug(thread.Slug)
+		if err == nil {
+			resp, _ := threadInBase.MarshalJSON()
+			utils.Send(409, ctx, resp)
+			return
+		}
+	}
 
 	err = m.tUC.InsertThread(thread)
-	if err != nil {
-		ctx.SetStatusCode(409)
-		ctx.Write([]byte(`{"message": "` + err.Error() + `" }`))
-		return
+	switch err {
+	case nil:
+		resp, _ := thread.MarshalJSON()
+		utils.Send(201, ctx, resp)
+	case models.ErrConflict:
+		resp, _ := threadInBase.MarshalJSON()
+		utils.Send(409, ctx, resp)
+	default:
+		utils.Send(500, ctx, utils.MustMarshalError(err))
 	}
-	ctx.SetStatusCode(fasthttp.StatusCreated)
-	resp, _ := json.Marshal(thread)
-	ctx.Write(resp)
 }
 
 func (m *ThreadManager) GetThreadsByForum(ctx *fasthttp.RequestCtx) {
-	ctx.SetContentType("application/json")
-
 	slug := ctx.UserValue("slug").(string)
-	_, err := m.fUC.SelectBySlug(slug)
-	if err != nil {
-		ctx.SetStatusCode(404)
-		ctx.Write([]byte(`{"message": "` + "forum does not exists : " + err.Error() + `" }`))
+	params := utils.MustGetParams(ctx)
+
+	if _, err := m.fUC.SelectForumWithCase(slug); err != nil {
+		utils.Send(404, ctx,
+			utils.MustMarshalError(errors.New("forum doesn't exists")))
 		return
 	}
-	params := &models.GetThreadsParams{}
-	params.Since = string(ctx.FormValue("since"))
-	if string(ctx.FormValue("desc")) == "true" {
-		params.Desc = true
-	} else {
-		params.Desc = false
-	}
-	params.Limit, _ = strconv.Atoi(string(ctx.FormValue("limit")))
 
 	threads, err := m.tUC.SelectThreadsByForum(slug, params.Limit, params.Since, params.Desc)
-	if err != nil {
-		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
-		ctx.Write([]byte(`{"message": "` + "select not ok : " + err.Error() + `" }`))
-		return
+	switch err {
+	case nil:
+		resp, _ := json.Marshal(threads)
+		utils.Send(200, ctx, resp)
+	default:
+		utils.Send(404, ctx, utils.MustMarshalError(err))
 	}
-	resp, _ := json.Marshal(threads)
-	ctx.SetStatusCode(200)
-	ctx.Write(resp)
 }
 
 func (m *ThreadManager) Details(ctx *fasthttp.RequestCtx) {
-	ctx.SetContentType("application/json")
 	slug := ctx.UserValue("slugOrID").(string)
 	thread, err := m.tUC.SelectBySlugOrID(slug)
-	if err != nil {
-		ctx.SetStatusCode(404)
-		ctx.Write([]byte(`{"message": "` + "thread does not exists : " + `" }`))
-		return
+	switch err {
+	case nil:
+		resp, _ := thread.MarshalJSON()
+		utils.Send(200, ctx, resp)
+	default:
+		utils.Send(404, ctx, utils.MustMarshalError(err))
 	}
-
-	resp, _ := json.Marshal(thread)
-	ctx.Write(resp)
-	ctx.SetStatusCode(200)
 }
 
 func (m *ThreadManager) Update(ctx *fasthttp.RequestCtx) {
-	ctx.SetContentType("application/json")
 	slug := ctx.UserValue("slugOrID").(string)
-	threadInDB, err := m.tUC.SelectBySlugOrID(slug)
-	if err != nil {
-		ctx.SetStatusCode(404)
-		ctx.Write([]byte(`{"message": "` + "thread does not exists : " + `" }`))
-		return
-	}
 	thread := &models.Thread{}
-	if err := json.Unmarshal(ctx.PostBody(), thread); err != nil {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		ctx.Write([]byte(`{"message": "` + err.Error() + `" }`))
-		return
+	if err := thread.UnmarshalJSON(ctx.PostBody()); err != nil {
+		utils.Send(400, ctx, utils.MustMarshalError(err))
 	}
-	thread.Slug = threadInDB.Slug
-	if thread.Forum == "" {
-		thread.Forum = threadInDB.Forum
+	err := m.tUC.UpdateBySlugOrID(slug, thread)
+	switch err {
+	case nil:
+		resp, _ := thread.MarshalJSON()
+		utils.Send(200, ctx, resp)
+	default:
+		utils.Send(404, ctx, utils.MustMarshalError(err))
 	}
-	if thread.Author == "" {
-		thread.Author = threadInDB.Author
-	}
-	if thread.Title == "" {
-		thread.Title = threadInDB.Title
-	}
-	if thread.Message == "" {
-		thread.Message = threadInDB.Message
-	}
-	thread.ID = threadInDB.ID
-	err = m.tUC.Update(thread)
-	if err != nil {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		ctx.Write([]byte(`{"message": "` + err.Error() + `" }`))
-		return
-	}
-	resp, _ := json.Marshal(thread)
-	ctx.Write(resp)
-	ctx.SetStatusCode(200)
 }
 
 func (m *ThreadManager) Vote(ctx *fasthttp.RequestCtx) {
-	ctx.SetContentType("application/json")
 	slug := ctx.UserValue("slugOrID").(string)
 
 	voice := &models.Vote{}
-	if err := json.Unmarshal(ctx.PostBody(), voice); err != nil {
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		ctx.Write([]byte(`{"message": "` + `" }`))
-		return
+	if err := voice.UnmarshalJSON(ctx.PostBody()); err != nil {
+		utils.Send(400, ctx, utils.MustMarshalError(err))
 	}
 	thread, err := m.tUC.Vote(*voice, slug)
-	if err != nil {
-		ctx.SetStatusCode(404)
-		ctx.Write([]byte(`{"message": "` +  `" }`))
-		return
+	switch err {
+	case nil:
+		resp, _ := thread.MarshalJSON()
+		utils.Send(200, ctx, resp)
+	default:
+		utils.Send(404, ctx, utils.MustMarshalError(err))
 	}
-	resp , _ := json.Marshal(thread)
-	ctx.SetStatusCode(200)
-	ctx.Write(resp)
 }
