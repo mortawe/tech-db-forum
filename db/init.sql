@@ -8,6 +8,8 @@ CREATE UNLOGGED TABLE users
     nickname CITEXT PRIMARY KEY NOT NULL
 );
 
+CREATE UNIQUE INDEX ON users (nickname, email);
+
 CREATE UNLOGGED TABLE forums
 (
     slug     CITEXT PRIMARY KEY                                   NOT NULL,
@@ -16,6 +18,8 @@ CREATE UNLOGGED TABLE forums
     posts    INTEGER DEFAULT 0                                    NOT NULL,
     threads  INTEGER DEFAULT 0                                    NOT NULL
 );
+
+CREATE INDEX ON forums (slug);
 
 CREATE UNLOGGED TABLE forum_users
 (
@@ -190,25 +194,3 @@ CREATE TRIGGER update_forum_counters_after_thread_insert
 EXECUTE PROCEDURE update_forum_counter_threads();
 
 --
-CREATE FUNCTION check_parent() RETURNS TRIGGER AS
-$$
-DECLARE temp int;
-BEGIN
-    IF new.parent != 0 THEN
-        SELECT thread
-        INTO temp
-        FROM posts
-        WHERE id = new.parent;
-        IF temp != new.thread THEN RAISE EXCEPTION 'Not in this thread ID ' USING HINT = 'Please check your parent ID';
-        END IF;
-    END IF;
-    RETURN null;
-END;
-$$
-    LANGUAGE plpgsql;
-
-CREATE TRIGGER check_parent
-    BEFORE INSERT
-    ON posts
-    FOR EACH ROW
-EXECUTE PROCEDURE check_parent();

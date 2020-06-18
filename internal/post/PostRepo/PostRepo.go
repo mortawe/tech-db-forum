@@ -44,8 +44,7 @@ func (r *PostRepo) 	InsertPost(posts []*models.Post, forum string, id int) error
 		return err
 	}
 
-	idx := 0
-	for idx = 0; rows.Next(); idx++ {
+	for idx := 0; rows.Next(); idx++ {
 		posts[idx].Forum = forum
 		posts[idx].Thread = id
 		if err := rows.Scan(&posts[idx].ID, &posts[idx].Created); err != nil {
